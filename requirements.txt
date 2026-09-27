@@ -1,0 +1,9 @@
+fastapi
+pydantic
+mlflow
+pandas
+uvicorn
+pytest
+httpx
+xgboost
+ruff

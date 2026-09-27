@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+mlflow.db
+mlruns/
+.env
+run_text
+.ipynb_checkpoints/
+data/creditcard.csv

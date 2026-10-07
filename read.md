@@ -79,7 +79,7 @@ The trained fraud detection model was exposed through a FastAPI REST API.
 
 ### API Architecture
 
-```text
+
 Client
    ↓
 FastAPI
@@ -91,7 +91,7 @@ XGBoost
 Fraud Probability
    ↓
 Risk Classification
-```
+
 
 ### Endpoints
 
@@ -101,11 +101,10 @@ Used to verify that the API is running.
 
 Example response:
 
-```json
 {
   "status": "healthy"
 }
-```
+
 
 #### POST `/predict`
 
@@ -121,13 +120,13 @@ Therefore, the API request schema matches these model features.
 
 Example response:
 
-```json
+json
 {
   "fraud_probability": 0.000009752601727086585,
   "risk": "Low",
   "threshold": 0.5
 }
-```
+
 
 The probability shown above is an example response format; actual predictions depend on the transaction submitted to the model.
 
@@ -135,26 +134,25 @@ The probability shown above is an example response format; actual predictions de
 
 The XGBoost model is loaded directly from the MLflow experiment using its run URI.
 
-```python
+
 mlflow.set_tracking_uri("http://127.0.0.1:5000")
 
 model = mlflow.xgboost.load_model(
     "runs:/<XGBOOST_RUN_ID>/xgboost_model"
 )
-```
+
 
 ### Risk Classification
 
 The API converts the model's fraud probability into a risk category using a configurable threshold.
 
-```python
 FRAUD_THRESHOLD = 0.5
 
 if fraud_probability >= FRAUD_THRESHOLD:
     risk = "HIGH"
 else:
     risk = "LOW"
-```
+
 
 The threshold is treated as a decision parameter rather than an inherent property of the model. Different thresholds can produce different precision and recall trade-offs.
 
@@ -162,9 +160,9 @@ The threshold is treated as a decision parameter rather than an inherent propert
 
 FastAPI provides interactive API documentation at:
 
-```text
+
 http://127.0.0.1:8000/docs
-```
+
 
 ### Testing
 
@@ -212,3 +210,82 @@ MLflow
 trained XGBoost model
    ↓
 prediction
+
+#### Continuous Integration
+
+This project uses GitHub Actions for continuous integration.
+
+The workflow is triggered when code is pushed to the `main` branch or when a pull request targets `main`.
+
+The CI pipeline performs three checks:
+
+1. **Tests** — runs the project's pytest test suite.
+2. **Linting** — checks Python code using Ruff.
+3. **Docker build** — builds the FastAPI Docker image to verify that the Dockerfile and application dependencies can be packaged successfully.
+
+The Docker image is built in the GitHub Actions runner. It is not pushed to a container registry at this stage.
+
+The workflow is located at:
+
+.github/workflows/ci.yml
+
+
+### CI Flow
+
+Git Push
+   ↓
+GitHub Actions
+   ↓
+┌─────────────┐
+│    Tests    │
+└──────┬──────┘
+       ↓
+┌─────────────┐
+│    Lint     │
+└──────┬──────┘
+       ↓
+┌─────────────┐
+│ Docker Build│
+└──────┬──────┘
+       ↓
+    CI PASS
+
+# Monitoring
+
+## Application Monitoring
+
+The Fraud Detection API implements basic application monitoring using Python logging and in-memory counters.
+
+### Monitored Metrics
+
+- Request method and endpoint
+- HTTP response status
+- Response time
+- Total prediction count
+- High-risk prediction count
+- Low-risk prediction count
+- Prediction/application error count
+
+## Endpoints
+
+### GET /health
+
+Used to verify that the API is running.
+
+### POST /predict
+
+Returns the fraud probability and risk classification.
+
+### GET /metrics
+
+Returns the current in-memory application counters.
+
+Example:
+
+```json
+{
+  "prediction_count": 10,
+  "error_count": 1,
+  "high_risk_count": 2,
+  "low_risk_count": 8
+}

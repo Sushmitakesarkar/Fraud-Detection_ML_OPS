@@ -1,7 +1,22 @@
+import logging
+import time
+
 import mlflow
 import pandas as pd
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+#monitoring 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s -%(message)s"
+)
+logger=logging.getLogger(__name__)
+
+prediction_count = 0
+error_count = 0
+high_risk_count = 0
+low_risk_count = 0
 
 #Fast API app
 app=FastAPI(
@@ -9,6 +24,29 @@ app=FastAPI(
     description="API for fraud probability prediction",
     version="1.0.0"
 )
+@app.middleware("http")
+async def monitor_requests(request, call_next):
+    start_time = time.time()
+
+    logger.info(
+        "Request started: %s %s",
+        request.method,
+        request.url.path
+    )
+
+    response = await call_next(request)
+
+    response_time = time.time() - start_time
+
+    logger.info(
+        "Request completed: %s %s | status=%s | response_time=%.4fs",
+        request.method,
+        request.url.path,
+        response.status_code,
+        response_time
+    )
+
+    return response
 
 #Ml flow config
 mlflow.set_tracking_uri("http://127.0.0.1:5000")
@@ -61,24 +99,56 @@ def health_check():
 #Prediction endpoint
 @app.post("/predict")
 def predict(transaction:Transaction):
-    #converting pydantic obj transaction into dict
-    transaction_data=transaction.model_dump()
-    #convert ths dicnto pandas dataframe cz my model in as trained using datframe
-    input= pd.DataFrame([transaction_data])
+    global prediction_count, error_count, high_risk_count, low_risk_count
 
-    #CAlculating probability 
-    fraud_probability= float(model.predict_proba(input)[0][1])
-    fraud_threshold=0.5
-    # Displaying risk 
-    if fraud_probability >= fraud_threshold:
-        Risk="High"
-    else:
-        Risk="Low"
-    #return(fraud_probability,Risk)
-    return { "fraud_probability": fraud_probability,                   #round(fraud_probability, 4),
-             "risk": Risk,
-             "threshold": fraud_threshold}
+    try:
 
+        #converting pydantic obj transaction into dict
+        transaction_data=transaction.model_dump()
+        #convert ths dicnto pandas dataframe cz my model in as trained using datframe
+        input_data= pd.DataFrame([transaction_data])
+
+        #CAlculating probability 
+        fraud_probability= float(model.predict_proba(input_data)[0][1])
+        fraud_threshold=0.5
+        # Displaying risk 
+        if fraud_probability >= fraud_threshold:
+            risk="High"
+            high_risk_count +=1
+        else:
+            risk="Low"
+            low_risk_count +=1
+        prediction_count +=1
+        logger.info(
+            "Prediction completed | probability=%.6f | risk=%s | total_predictions=%s",
+            fraud_probability,
+            risk,
+            prediction_count
+
+        )
+        #return(fraud_probability,Risk)
+        return { "fraud_probability": fraud_probability,                   #round(fraud_probability, 4),
+                "risk": risk,
+                "threshold": fraud_threshold}
+
+    except Exception:
+        error_count += 1
+
+        logger.exception(
+            "Prediction failed | total_errors=%s",
+            error_count
+        )
+
+        raise
+
+@app.get("/metrics")
+def metrics():
+    return {
+        "prediction_count": prediction_count,
+        "error_count": error_count,
+        "high_risk_count": high_risk_count,
+        "low_risk_count": low_risk_count
+    }
 
 
 

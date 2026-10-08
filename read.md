@@ -1,10 +1,70 @@
-# Real-Time Fraud Detection MLOps Platform
+# Fraud Detection MLOps Platform
 
-# Fraud Detection Models
+An end-to-end machine learning and MLOps project for detecting fraudulent credit card transactions.
 
+The project demonstrates the complete workflow from model development and experiment tracking to API serving, monitoring, containerization, and CI/CD.
+
+## Project Overview
+
+The system:
+
+Trains fraud detection models on an imbalanced credit card transaction dataset.
+
+Evaluates models using fraud-focused metrics.
+
+Tracks experiments and models using MLflow.
+
+Serves the trained XGBoost model through a FastAPI REST API.
+
+Implements basic application monitoring.
+
+Provides Docker configuration for containerized deployment.
+
+Uses GitHub Actions for automated testing, linting, and Docker image builds.
+
+Documents a potential AWS production architecture.
+
+# Architecture
+
+                    Machine Learning
+                         │
+                         ▼
+                 Model Training
+                         │
+                         ▼
+                      MLflow
+                         │
+                         ▼
+                   XGBoost Model
+                         │
+                         ▼
+                    FastAPI API
+                         │
+              ┌──────────┼──────────┐
+              │          │          │
+           /health    /predict   /metrics
+                         │
+                         ▼
+                    Monitoring
+                         │
+                         ▼
+                       Docker
+                         │
+                         ▼
+                    GitHub Actions
+                         │
+                 ┌───────┴────────┐
+                 │                │
+               Tests            Ruff
+                 │                │
+                 └───────┬────────┘
+                         │
+                    Docker Build
+
+# Machine Learning
 Used the Credit Card Fraud Detection dataset to build initial fraud detection models.
 
-#Models
+# Models
 - Logistic Regression
 - Random Forest
 - XGBoost
@@ -54,10 +114,13 @@ Therefore, a real fraud-detection system would need to consider recall together 
 
 
 
-#MLFLOW
+# MLFLOW
 
 Three classification models were trained and tracked using MLflow: Logistic Regression, Random Forest, and XGBoost. Their precision, recall, F1-score, and PR-AUC were compared because the dataset is highly imbalanced. The results show that model selection for fraud detection involves a trade-off between detecting fraudulent transactions and limiting false positives. The final model choice should therefore consider the application's relative cost of false negatives and false positives rather than relying on accuracy alone.
 
+MLflow is used for experiment tracking and model management.
+
+The FastAPI application loads the trained XGBoost model from an MLflow run.
 
 
 
@@ -69,11 +132,7 @@ Three classification models were trained and tracked using MLflow: Logistic Regr
 
 
 
-
-
-
-
-## Day 25 — FastAPI Prediction Service
+#  FastAPI 
 
 The trained fraud detection model was exposed through a FastAPI REST API.
 
@@ -93,9 +152,9 @@ Fraud Probability
 Risk Classification
 
 
-### Endpoints
+## Endpoints
 
-#### GET `/health`
+## GET `/health`
 
 Used to verify that the API is running.
 
@@ -106,7 +165,7 @@ Example response:
 }
 
 
-#### POST `/predict`
+## POST `/predict`
 
 Accepts transaction features and returns a fraud probability and risk classification.
 
@@ -128,7 +187,19 @@ json
 }
 
 
-The probability shown above is an example response format; actual predictions depend on the transaction submitted to the model.
+
+
+## GET /metrics
+
+Returns basic in-memory application counters including:
+
+Prediction count
+
+Error count
+
+High-risk prediction count
+
+Low-risk prediction count
 
 ### Model Integration
 
@@ -156,6 +227,25 @@ else:
 
 The threshold is treated as a decision parameter rather than an inherent property of the model. Different thresholds can produce different precision and recall trade-offs.
 
+### Monitoring
+
+The application implements basic monitoring for:
+
+Request logging
+
+HTTP response status
+
+Response time
+
+Prediction counts
+
+Error counts
+
+High-risk and low-risk predictions
+
+
+
+
 ### API Documentation
 
 FastAPI provides interactive API documentation at:
@@ -172,21 +262,6 @@ The API was tested using:
 * `POST /predict`
 * Multiple test transactions from the fraud detection test set
 
-
-Project architecture:
-
-                    MLflow
-               ┌──────────────┐
-               │  Run         │
-               │  XGBoost     │
-               │  Model       │
-               └──────┬───────┘
-                      │
-                      │ MODEL_URI
-                      ↓
-Client → FastAPI → MLflow Model
-             ↓
-        Prediction
 
 
 
@@ -211,6 +286,7 @@ trained XGBoost model
    ↓
 prediction
 
+
 #### Continuous Integration
 
 This project uses GitHub Actions for continuous integration.
@@ -231,61 +307,54 @@ The workflow is located at:
 
 
 ### CI Flow
+GitHub Actions is configured to run on pushes and pull requests.
 
-Git Push
+The CI pipeline performs:
+
+Checkout
+   ↓
+Install dependencies
+   ↓
+Run pytest
+   ↓
+Run Ruff
+   ↓
+Build Docker image
+
+The Docker image is built by GitHub Actions but is not pushed to a container registry.
+
+Workflow:
+
+.github/workflows/ci.yml
+
+#### AWS Architecture
+
+A potential production deployment architecture is documented in:
+
+AWS_ARCHITECTURE.md
+
+The conceptual architecture is:
+
+GitHub
    ↓
 GitHub Actions
    ↓
-┌─────────────┐
-│    Tests    │
-└──────┬──────┘
-       ↓
-┌─────────────┐
-│    Lint     │
-└──────┬──────┘
-       ↓
-┌─────────────┐
-│ Docker Build│
-└──────┬──────┘
-       ↓
-    CI PASS
+Docker Image
+   ↓
+Amazon ECR
+   ↓
+Amazon EC2
+   ↓
+FastAPI
+   ↓
+ML Model
 
-# Monitoring
+AWS deployment was not implemented. AWS services were studied to understand how the application could be deployed in a production environment.
 
-## Application Monitoring
+##### Dataset
 
-The Fraud Detection API implements basic application monitoring using Python logging and in-memory counters.
+The original credit card fraud dataset is not included in the GitHub repository because the CSV exceeds GitHub's standard file-size limit.
 
-### Monitored Metrics
+The dataset is therefore kept locally and excluded through .gitignore.
 
-- Request method and endpoint
-- HTTP response status
-- Response time
-- Total prediction count
-- High-risk prediction count
-- Low-risk prediction count
-- Prediction/application error count
 
-## Endpoints
-
-### GET /health
-
-Used to verify that the API is running.
-
-### POST /predict
-
-Returns the fraud probability and risk classification.
-
-### GET /metrics
-
-Returns the current in-memory application counters.
-
-Example:
-
-```json
-{
-  "prediction_count": 10,
-  "error_count": 1,
-  "high_risk_count": 2,
-  "low_risk_count": 8
-}
